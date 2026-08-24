@@ -716,5 +716,216 @@ class VideoThumbnailAdapter(
     }
 }
 `
+  },
+  {
+    path: 'app/src/main/java/com/media/otgvlc/audio/AudioRoutingHelper.kt',
+    name: 'AudioRoutingHelper.kt',
+    category: 'player',
+    description: 'Android Native Audio Routing Dispatcher: Auto-selects Bluetooth TWS -> USB DAC -> 3.5mm Headset -> Speaker with AudioDeviceCallback.',
+    code: `package com.media.otgvlc.audio
+
+import android.content.Context
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
+import androidx.annotation.RequiresApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+class AudioRoutingHelper(private val context: Context) {
+
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    data class AudioDeviceModel(
+        val id: String,
+        val name: String,
+        val type: DeviceType,
+        val isAvailable: Boolean,
+        val nativeDeviceInfo: AudioDeviceInfo? = null
+    )
+
+    enum class DeviceType {
+        BLUETOOTH, USB_DAC, WIRED_HEADSET, HDMI, SPEAKER
+    }
+
+    enum class RoutingPolicy {
+        AUTO_ANDROID, MANUAL
+    }
+
+    private val _currentPolicy = MutableStateFlow(RoutingPolicy.AUTO_ANDROID)
+    val currentPolicy: StateFlow<RoutingPolicy> = _currentPolicy.asStateFlow()
+
+    private val _activeDevice = MutableStateFlow<AudioDeviceModel?>(null)
+    val activeDevice: StateFlow<AudioDeviceModel?> = _activeDevice.asStateFlow()
+
+    private val _availableDevices = MutableStateFlow<List<AudioDeviceModel>>(emptyList())
+    val availableDevices: StateFlow<List<AudioDeviceModel>> = _availableDevices.asStateFlow()
+
+    private var audioDeviceCallback: AudioDeviceCallback? = null
+
+    init {
+        refreshDevices()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            registerDeviceCallback()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun registerDeviceCallback() {
+        audioDeviceCallback = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                refreshDevices()
+            }
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                refreshDevices()
+            }
+        }
+        audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
+    }
+
+    fun refreshDevices() {
+        val detected = mutableListOf<AudioDeviceModel>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            for (dev in devices) {
+                val type = when (dev.type) {
+                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                    AudioDeviceInfo.TYPE_HEARING_AID -> DeviceType.BLUETOOTH
+                    AudioDeviceInfo.TYPE_USB_DEVICE,
+                    AudioDeviceInfo.TYPE_USB_HEADSET -> DeviceType.USB_DAC
+                    AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                    AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> DeviceType.WIRED_HEADSET
+                    AudioDeviceInfo.TYPE_HDMI,
+                    AudioDeviceInfo.TYPE_HDMI_ARC -> DeviceType.HDMI
+                    else -> DeviceType.SPEAKER
+                }
+
+                val name = dev.productName.toString().ifBlank {
+                    when (type) {
+                        DeviceType.BLUETOOTH -> "Bluetooth TWS / Earbuds"
+                        DeviceType.USB_DAC -> "USB-C Audio DAC"
+                        DeviceType.WIRED_HEADSET -> "Wired 3.5mm Headset"
+                        DeviceType.HDMI -> "HDMI Display"
+                        DeviceType.SPEAKER -> "Phone Speaker"
+                    }
+                }
+
+                detected.add(AudioDeviceModel(dev.id.toString(), name, type, true, dev))
+            }
+        } else {
+            val isBt = audioManager.isBluetoothA2dpOn
+            val isWired = audioManager.isWiredHeadsetOn
+            if (isBt) detected.add(AudioDeviceModel("bt_legacy", "Bluetooth Audio", DeviceType.BLUETOOTH, true))
+            if (isWired) detected.add(AudioDeviceModel("wired_legacy", "Wired Headset", DeviceType.WIRED_HEADSET, true))
+            detected.add(AudioDeviceModel("speaker_legacy", "Phone Speaker", DeviceType.SPEAKER, true))
+        }
+
+        _availableDevices.value = detected
+        if (_currentPolicy.value == RoutingPolicy.AUTO_ANDROID) {
+            _activeDevice.value = computeAutoDevice(detected)
+        }
+    }
+
+    private fun computeAutoDevice(devices: List<AudioDeviceModel>): AudioDeviceModel? {
+        return devices.firstOrNull { it.type == DeviceType.BLUETOOTH }
+            ?: devices.firstOrNull { it.type == DeviceType.USB_DAC }
+            ?: devices.firstOrNull { it.type == DeviceType.WIRED_HEADSET }
+            ?: devices.firstOrNull { it.type == DeviceType.HDMI }
+            ?: devices.firstOrNull { it.type == DeviceType.SPEAKER }
+            ?: devices.firstOrNull()
+    }
+
+    fun setPolicy(policy: RoutingPolicy) {
+        _currentPolicy.value = policy
+        if (policy == RoutingPolicy.AUTO_ANDROID) {
+            _activeDevice.value = computeAutoDevice(_availableDevices.value)
+        }
+    }
+
+    fun release() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && audioDeviceCallback != null) {
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
+    }
+}
+`
+  },
+  {
+    path: 'app/src/main/java/com/media/otgvlc/service/MediaPlaybackService.kt',
+    name: 'MediaPlaybackService.kt',
+    category: 'player',
+    description: 'Foreground MediaSessionService for background audio play, notification deck, and AMOLED screen-off.',
+    code: `package com.media.otgvlc.service
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
+import com.media.otgvlc.MainActivity
+
+class MediaPlaybackService : MediaSessionService() {
+
+    companion object {
+        const val CHANNEL_ID = "otg_vlc_playback_channel"
+        const val NOTIFICATION_ID = 1001
+    }
+
+    private var mediaSession: MediaSession? = null
+    private var player: ExoPlayer? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+
+        player = ExoPlayer.Builder(this).build()
+
+        val sessionActivityPendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        mediaSession = MediaSession.Builder(this, player!!)
+            .setSessionActivity(sessionActivityPendingIntent)
+            .build()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "OTG VLC Media Playback",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Foreground playback notification for USB OTG video audio"
+            }
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+        return mediaSession
+    }
+
+    override fun onDestroy() {
+        mediaSession?.run {
+            player.release()
+            release()
+            mediaSession = null
+        }
+        super.onDestroy()
+    }
+}
+`
   }
 ];
