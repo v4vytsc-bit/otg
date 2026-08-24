@@ -1,0 +1,6 @@
+{
+  "name": "Android OTG USB File Explorer & VLC Player",
+  "description": "Android OTG USB video explorer and VLC-style media player with legacy Android 6.0+ backwards compatibility, resume watch history, gesture controls, and complete production Kotlin codebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

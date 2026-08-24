@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Default Elegant Dark */
+  :root {
+    --bg-primary: #0A0A0A;
+    --bg-secondary: #141414;
+    --bg-card: #181818;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+    --border-color: #262626;
+    --accent-color: #EA580C;
+    --accent-hover: #F97316;
+  }
+
+  /* Clean Light Theme */
+  [data-theme="light"] {
+    --bg-primary: #F8FAFC;
+    --bg-secondary: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --text-primary: #0F172A;
+    --text-secondary: #64748B;
+    --border-color: #E2E8F0;
+    --accent-color: #EA580C;
+    --accent-hover: #C2410C;
+  }
+
+  /* OLED Pure Black Theme */
+  [data-theme="oled"] {
+    --bg-primary: #000000;
+    --bg-secondary: #0A0A0A;
+    --bg-card: #0F0F0F;
+    --text-primary: #FFFFFF;
+    --text-secondary: #A1A1AA;
+    --border-color: #27272A;
+    --accent-color: #F97316;
+    --accent-hover: #FB923C;
+  }
+
+  /* Cine Sunset Amber Theme */
+  [data-theme="amber"] {
+    --bg-primary: #120E0B;
+    --bg-secondary: #1C150E;
+    --bg-card: #241A12;
+    --text-primary: #FEF3C7;
+    --text-secondary: #D97706;
+    --border-color: #382618;
+    --accent-color: #F59E0B;
+    --accent-hover: #D97706;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.5);
+}
