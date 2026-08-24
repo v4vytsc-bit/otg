@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OTG VLC Player</string>
+    <string name="realme_warning_title">Realme / ColorOS 10-Min OTG Auto-Off Detected</string>
+    <string name="realme_warning_desc">Realme UI automatically disables OTG power if idle for 10 minutes. Tap below to keep OTG active in system settings.</string>
+    <string name="btn_open_otg_settings">Open OTG Settings</string>
+    <string name="select_otg_folder">Select USB Drive / Folder</string>
+    <string name="empty_videos">No video files found in this folder. Insert an OTG drive or choose another folder.</string>
+    <string name="audio_routing_title">Audio Output Routing</string>
+</resources>
